@@ -1161,7 +1161,7 @@ function renderSchedule() {
 
 function filterRound(page, round, btn) {
   currentRound = round;
-  document.querySelectorTodos(`#${page === 'picks' ? 'picksRoundFilter' : 'scheduleRoundFilter'} .round-btn`).forEach(b => b.classList.remove('active'));
+  document.querySelectorAll(`#${page === 'picks' ? 'picksRoundFilter' : 'scheduleRoundFilter'} .round-btn`).forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   const filtered = round === 'all' ? allMatches : allMatches.filter(m => m.round === round);
   const gridId = page === 'picks' ? 'picksGrid' : 'scheduleGrid';
@@ -1405,8 +1405,8 @@ function closeMobileMenu() {
 
 // ===================== NAVIGATION =====================
 function showPage(page, btn) {
-  document.querySelectorTodos('.page').forEach(p => p.classList.remove('active'));
-  document.querySelectorTodos('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('page-' + page).classList.add('active');
   if (btn) btn.classList.add('active');
   // Scroll to top on mobile
