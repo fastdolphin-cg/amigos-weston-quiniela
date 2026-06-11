@@ -916,7 +916,7 @@ async function loadLeaderboard() {
     const data = await gasRequest('getLeaderboard');
     leaderboardData = data.map(r => ({
       rank: parseInt(r.Rank) || 0, email: r.Email, name: r.DisplayName,
-      points: parseInt(r.TotalPuntos) || 0, exact: parseInt(r.ExactScores) || 0,
+      points: parseInt(r.TotalPoints) || 0, exact: parseInt(r.ExactScores) || 0,
       diff: parseInt(r.CorrectDiff) || 0, winner: parseInt(r.CorrectWinner) || 0,
       wrong: parseInt(r.WrongPicks) || 0
     }));
