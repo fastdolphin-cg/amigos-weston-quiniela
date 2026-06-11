@@ -1296,7 +1296,6 @@ async function fetchLiveScores() {
   btn.textContent = '⏳ Buscando...';
 
   try {
-    // Fetch live + recent finished matches
     const [liveResp, recentResp] = await Promise.all([
       fetch(`https://v3.football.api-sports.io/fixtures?league=1&season=2026&status=1H-HT-2H-ET-P-BT`, {
         headers: { 'x-apisports-key': CONFIG.API_FOOTBALL_KEY }
@@ -1308,17 +1307,15 @@ async function fetchLiveScores() {
 
     const liveData = await liveResp.json();
     const recentData = await recentResp.json();
-
     const liveFixtures = liveData.response || [];
-    const finishedFixtures = (recentData.response || []).slice(-20); // last 20 finished
-
-    const allFixtures = [...liveFixtures, ...finishedFixtures];
+    const finishedFixtures = recentData.response || [];
+    const allFixtures = [...liveFixtures, ...finishedFixtures.slice(-20)];
 
     if (allFixtures.length === 0) {
       document.getElementById('liveScoresGrid').innerHTML = `
         <div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--text2);">
           <div style="font-size:3rem;margin-bottom:12px;">😴</div>
-          No live or recent matches at this time.<br>Check back when the tournament is underway!
+          No hay partidos en vivo en este momento.
         </div>`;
     } else {
       document.getElementById('liveScoresGrid').innerHTML = allFixtures.map(f => {
@@ -1326,8 +1323,6 @@ async function fetchLiveScores() {
         const fixture = f.fixture;
         const teams = f.teams;
         const goals = f.goals;
-
-        // Map to our match format for rendering
         const matchObj = {
           id: 'live-' + fixture.id,
           round: f.league.round,
@@ -1339,24 +1334,29 @@ async function fetchLiveScores() {
           venue: fixture.venue?.name || '', city: fixture.venue?.city || '',
           apiId: fixture.id
         };
-
         return renderMatchCard(matchObj, false);
       }).join('');
     }
 
-    // Update scores in our Matches sheet for finished games
+    // Always update scores and recalculate leaderboard
     if (finishedFixtures.length > 0) {
+      showToast('Actualizando puntos...', 'success');
       await updateMatchResultsInSheet(finishedFixtures);
+      await loadLeaderboard();
+      if (document.getElementById('page-leaderboard').classList.contains('active')) renderLeaderboard();
+      showToast('¡Puntos actualizados! 🎯', 'success');
     }
 
     document.getElementById('lastUpdated').textContent = 'Actualizado: ' + new Date().toLocaleTimeString();
   } catch(e) {
     showToast('Error al obtener marcadores: ' + e.message, 'error');
+    console.error(e);
   } finally {
     btn.classList.remove('loading');
     btn.innerHTML = '🔄 Actualizar Marcadores';
   }
 }
+
 
 async function updateMatchResultsInSheet(fixtures) {
   const toUpdate = fixtures.map(f => ({
