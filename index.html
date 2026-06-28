@@ -173,6 +173,28 @@ main { position: relative; z-index: 1; max-width: 1400px; margin: 0 auto; paddin
 .stat-num { font-family: 'Bebas Neue'; font-size: 2.5rem; color: var(--gold); }
 .stat-label { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px; color: var(--text2); margin-top: 4px; }
 
+/* ===== SUB-TABS ===== */
+.sub-tabs {
+  display: flex; gap: 0; margin-bottom: 20px;
+  background: var(--navy2); border: 1px solid var(--border);
+  border-radius: 12px; padding: 4px; width: fit-content;
+}
+.sub-tab {
+  padding: 10px 20px; border-radius: 8px; cursor: pointer;
+  font-family: 'Barlow Condensed'; font-size: 0.95rem; font-weight: 700;
+  letter-spacing: 1px; text-transform: uppercase; border: none;
+  color: var(--text2); background: none; transition: all 0.2s; white-space: nowrap;
+}
+.sub-tab:hover { color: var(--gold); }
+.sub-tab.active {
+  background: linear-gradient(135deg, var(--blue), rgba(26,58,110,0.8));
+  color: var(--gold); box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+.sub-tab.fase2.active {
+  background: linear-gradient(135deg, rgba(245,197,24,0.2), rgba(255,107,0,0.2));
+  border: 1px solid rgba(245,197,24,0.3);
+}
+
 /* ===== SECTION TITLES ===== */
 .section-title {
   font-family: 'Bebas Neue'; font-size: 1.8rem; letter-spacing: 2px;
@@ -655,6 +677,10 @@ main { position: relative; z-index: 1; max-width: 1400px; margin: 0 auto; paddin
   <!-- PICKS PAGE -->
   <div id="page-picks" class="page">
     <div class="section-title">📝 Mis Pronósticos</div>
+    <div class="sub-tabs">
+      <button class="sub-tab fase2 active" onclick="switchPicksPhase('fase2', this)">⚔️ 2a Fase (16avos hasta Final)</button>
+      <button class="sub-tab" onclick="switchPicksPhase('grupos', this)">👥 Fase de Grupos</button>
+    </div>
     <div class="round-filter" id="picksRoundFilter"></div>
     <div class="cards-grid" id="picksGrid"><div style="color:var(--text2);padding:20px;">Cargando...</div></div>
   </div>
@@ -662,6 +688,10 @@ main { position: relative; z-index: 1; max-width: 1400px; margin: 0 auto; paddin
   <!-- LEADERBOARD PAGE -->
   <div id="page-leaderboard" class="page">
     <div class="section-title">🏆 Tabla General del Torneo</div>
+    <div class="sub-tabs">
+      <button class="sub-tab fase2 active" onclick="switchLbPhase('fase2', this)">⚔️ 2a Fase (16avos hasta Final)</button>
+      <button class="sub-tab" onclick="switchLbPhase('grupos', this)">👥 Fase de Grupos</button>
+    </div>
     <div class="leaderboard-table">
       <div class="lb-row header">
         <div>#</div><div>Jugador</div>
@@ -688,6 +718,10 @@ main { position: relative; z-index: 1; max-width: 1400px; margin: 0 auto; paddin
         🔄 Actualizar Marcadores
       </button>
     </div>
+    <div class="sub-tabs">
+      <button class="sub-tab fase2 active" onclick="switchLivePhase('fase2', this)">⚔️ 2a Fase (16avos hasta Final)</button>
+      <button class="sub-tab" onclick="switchLivePhase('grupos', this)">👥 Fase de Grupos</button>
+    </div>
     <div class="cards-grid" id="liveScoresGrid">
       <div style="color:var(--text2);padding:20px;grid-column:1/-1;text-align:center;">
         <div style="font-size:3rem;margin-bottom:12px;">🔴</div>
@@ -699,6 +733,10 @@ main { position: relative; z-index: 1; max-width: 1400px; margin: 0 auto; paddin
   <!-- SCHEDULE PAGE -->
   <div id="page-schedule" class="page">
     <div class="section-title">📅 Calendario Completo</div>
+    <div class="sub-tabs">
+      <button class="sub-tab fase2 active" onclick="switchSchedulePhase('fase2', this)">⚔️ 2a Fase (16avos hasta Final)</button>
+      <button class="sub-tab" onclick="switchSchedulePhase('grupos', this)">👥 Fase de Grupos</button>
+    </div>
     <div class="round-filter" id="scheduleRoundFilter"></div>
     <div class="cards-grid" id="scheduleGrid"><div style="color:var(--text2);padding:20px;">Cargando...</div></div>
   </div>
@@ -808,6 +846,19 @@ const CONFIG = {
 };
 
 // ===================== STATE =====================
+let currentPhase = 'fase2'; // 'fase2' or 'grupos'
+let currentLbPhase = 'fase2';
+let currentLivePhase = 'fase2';
+let currentSchedulePhase = 'fase2';
+let allPicksCache = {}; // Cache for all users' picks for leaderboard calc
+
+// Helper: is this match in group stage or knockout?
+function isGrupos(match) {
+  if (!match.round) return true;
+  const r = match.round.toLowerCase();
+  return r.includes('group') || r.includes('grupo') || r.includes('fase de grupo');
+}
+function isFase2(match) { return !isGrupos(match); }
 let currentUser = null;
 let allMatches = [];
 let userPicks = {};
@@ -1155,14 +1206,26 @@ function renderHome() {
 }
 
 function renderPicks() {
-  const rounds = [...new Set(allMatches.map(m => m.round))].filter(Boolean);
+  // Filter by phase first
+  const phaseMatches = currentPhase === 'grupos'
+    ? allMatches.filter(m => isGrupos(m))
+    : allMatches.filter(m => isFase2(m));
+
+  const rounds = [...new Set(phaseMatches.map(m => m.round))].filter(Boolean);
   const filterEl = document.getElementById('picksRoundFilter');
   filterEl.innerHTML = `<button class="round-btn ${currentRound==='all'?'active':''}" onclick="filterRound('picks','all',this)">Todos</button>` +
     rounds.map(r => `<button class="round-btn ${currentRound===r?'active':''}" onclick="filterRound('picks','${r}',this)">${r}</button>`).join('');
 
-  const filtered = currentRound === 'all' ? allMatches : allMatches.filter(m => m.round === currentRound);
-  document.getElementById('picksGrid').innerHTML = filtered.map(m => renderMatchCard(m, true)).join('') ||
-    '<div style="color:var(--text2);padding:20px;">No matches found.</div>';
+  const filtered = currentRound === 'all' ? phaseMatches : phaseMatches.filter(m => m.round === currentRound);
+
+  if (filtered.length === 0) {
+    const msg = currentPhase === 'fase2'
+      ? '⚔️ Los partidos de la 2a Fase aparecerán aquí cuando la Ronda de 16 comience.'
+      : 'No se encontraron partidos.';
+    document.getElementById('picksGrid').innerHTML = `<div style="color:var(--text2);padding:30px;grid-column:1/-1;text-align:center;">${msg}</div>`;
+    return;
+  }
+  document.getElementById('picksGrid').innerHTML = filtered.map(m => renderMatchCard(m, true)).join('');
 }
 
 function renderLeaderboard() {
@@ -1274,11 +1337,20 @@ async function toggleDrill(id, email) {
 }
 
 function renderSchedule() {
-  const rounds = [...new Set(allMatches.map(m => m.round))].filter(Boolean);
+  const phaseMatches = currentSchedulePhase === 'grupos'
+    ? allMatches.filter(m => isGrupos(m))
+    : allMatches.filter(m => isFase2(m));
+
+  const rounds = [...new Set(phaseMatches.map(m => m.round))].filter(Boolean);
   const filterEl = document.getElementById('scheduleRoundFilter');
   filterEl.innerHTML = `<button class="round-btn active" onclick="filterRound('schedule','all',this)">Todos</button>` +
     rounds.map(r => `<button class="round-btn" onclick="filterRound('schedule','${r}',this)">${r}</button>`).join('');
-  document.getElementById('scheduleGrid').innerHTML = allMatches.map(m => renderMatchCard(m, false)).join('');
+
+  if (phaseMatches.length === 0) {
+    document.getElementById('scheduleGrid').innerHTML = `<div style="color:var(--text2);padding:30px;grid-column:1/-1;text-align:center;">⚔️ El calendario de la 2a Fase aparecerá cuando la FIFA confirme los partidos.</div>`;
+    return;
+  }
+  document.getElementById('scheduleGrid').innerHTML = phaseMatches.map(m => renderMatchCard(m, false)).join('');
 }
 
 function filterRound(page, round, btn) {
@@ -1434,14 +1506,26 @@ async function fetchLiveScores() {
     const finishedFixtures = recentData.response || [];
     const allFixtures = [...liveFixtures, ...finishedFixtures.slice(-20)];
 
-    if (allFixtures.length === 0) {
-      document.getElementById('liveScoresGrid').innerHTML = `
+    // Cache fixtures for phase filtering
+    const grid = document.getElementById('liveScoresGrid');
+    grid._allFixtures = allFixtures;
+    grid._liveFixtures = liveFixtures;
+
+    // Filter by current phase
+    const phaseFixtures = allFixtures.filter(f => {
+      const round = (f.league?.round || '').toLowerCase();
+      const isGrp = round.includes('group');
+      return currentLivePhase === 'grupos' ? isGrp : !isGrp;
+    });
+
+    if (phaseFixtures.length === 0) {
+      grid.innerHTML = `
         <div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--text2);">
           <div style="font-size:3rem;margin-bottom:12px;">😴</div>
-          No hay partidos en vivo en este momento.
+          No hay partidos en vivo en esta fase en este momento.
         </div>`;
     } else {
-      document.getElementById('liveScoresGrid').innerHTML = allFixtures.map(f => {
+      grid.innerHTML = phaseFixtures.map(f => {
         const isLive = liveFixtures.includes(f);
         const fixture = f.fixture;
         const teams = f.teams;
@@ -1510,6 +1594,185 @@ async function updateMatchResultsInSheet(fixtures) {
 
 // Leaderboard recalc is handled server-side by Apps Script
 
+// ===================== PHASE SWITCHING =====================
+
+function switchPicksPhase(phase, btn) {
+  currentPhase = phase;
+  document.querySelectorAll('#page-picks .sub-tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderPicks();
+}
+
+function switchLbPhase(phase, btn) {
+  currentLbPhase = phase;
+  document.querySelectorAll('#page-leaderboard .sub-tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  if (phase === 'grupos') {
+    renderLeaderboard();
+  } else {
+    renderLeaderboardFase2();
+  }
+}
+
+function switchLivePhase(phase, btn) {
+  currentLivePhase = phase;
+  document.querySelectorAll('#page-live .sub-tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  filterLiveByPhase();
+}
+
+function switchSchedulePhase(phase, btn) {
+  currentSchedulePhase = phase;
+  document.querySelectorAll('#page-schedule .sub-tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderSchedule();
+}
+
+// Filter live scores grid by phase
+function filterLiveByPhase() {
+  const cards = document.querySelectorAll('#liveScoresGrid > div');
+  // Re-render is simpler - just call fetchLiveScores display portion
+  const grid = document.getElementById('liveScoresGrid');
+  if (!grid._allFixtures) return;
+  const fixtures = grid._allFixtures;
+  const filtered = fixtures.filter(f => {
+    const round = (f.league?.round || '').toLowerCase();
+    const isGrp = round.includes('group');
+    return currentLivePhase === 'grupos' ? isGrp : !isGrp;
+  });
+  if (filtered.length === 0) {
+    grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--text2);">
+      <div style="font-size:3rem;margin-bottom:12px;">😴</div>
+      No hay partidos en esta fase en este momento.
+    </div>`;
+  } else {
+    grid.innerHTML = filtered.map(f => {
+      const isLive = grid._liveFixtures?.includes(f);
+      const fixture = f.fixture;
+      const teams = f.teams;
+      const goals = f.goals;
+      const matchObj = {
+        id: 'live-' + fixture.id, round: f.league.round,
+        homeTeam: teams.home.name, awayTeam: teams.away.name,
+        homeLogo: teams.home.logo, awayLogo: teams.away.logo,
+        homeScore: goals.home, awayScore: goals.away,
+        status: isLive ? 'Live' : 'FT',
+        dateTime: fixture.date, venue: fixture.venue?.name || '',
+        city: fixture.venue?.city || '', apiId: fixture.id
+      };
+      return renderMatchCard(matchObj, false);
+    }).join('');
+  }
+}
+
+// Leaderboard for 2a Fase - calculated from picks M073+ 
+async function renderLeaderboardFase2() {
+  const el = document.getElementById('leaderboardBody');
+  el.innerHTML = '<div style="padding:20px;color:var(--text2);">Calculando tabla de 2a Fase...</div>';
+
+  try {
+    // Get fase2 matches (non-group stage)
+    const fase2Matches = allMatches.filter(m => isFase2(m));
+    const fase2Ids = new Set(fase2Matches.map(m => m.id));
+
+    // Get all users from leaderboard data
+    const users = leaderboardData.map(u => ({ email: u.email, name: u.name }));
+    if (users.length === 0) {
+      el.innerHTML = '<div style="padding:20px;color:var(--text2);">Cargando usuarios...</div>';
+      return;
+    }
+
+    // Calculate scores from picks - fetch all users' picks
+    const scores = {};
+    users.forEach(u => {
+      scores[u.email] = { email: u.email, name: u.name, points: 0, exact: 0, diff: 0, winner: 0, wrong: 0 };
+    });
+
+    // Use cached picks or fetch
+    for (const user of users) {
+      let picks;
+      if (allPicksCache[user.email]) {
+        picks = allPicksCache[user.email];
+      } else {
+        picks = await gasRequest('getPicks', { email: user.email });
+        allPicksCache[user.email] = picks;
+      }
+
+      picks.forEach(pick => {
+        if (!fase2Ids.has(pick.MatchID)) return;
+        const match = allMatches.find(m => m.id === pick.MatchID);
+        if (!match || match.homeScore === null || match.homeScore === '' || match.homeScore === undefined) return;
+        const ph = parseInt(pick.HomeScorePick);
+        const pa = parseInt(pick.AwayScorePick);
+        const ah = parseInt(match.homeScore);
+        const aa = parseInt(match.awayScore);
+        if (isNaN(ph) || isNaN(pa) || isNaN(ah) || isNaN(aa)) return;
+
+        let pts = 0;
+        if (ph === ah && pa === aa) { pts = 3; scores[user.email].exact++; }
+        else {
+          const pr = ph > pa ? 'H' : pa > ph ? 'A' : 'D';
+          const ar = ah > aa ? 'H' : aa > ah ? 'A' : 'D';
+          if (pr !== ar) { pts = 0; scores[user.email].wrong++; }
+          else if ((ph - pa) === (ah - aa)) { pts = 2; scores[user.email].diff++; }
+          else { pts = 1; scores[user.email].winner++; }
+        }
+        scores[user.email].points += pts;
+      });
+    }
+
+    // Sort with tiebreaker
+    const sorted = Object.values(scores).sort((a, b) => {
+      if (b.points !== a.points) return b.points - a.points;
+      if (b.exact !== a.exact) return b.exact - a.exact;
+      if (b.diff !== a.diff) return b.diff - a.diff;
+      if (b.winner !== a.winner) return b.winner - a.winner;
+      return 0;
+    });
+
+    // Assign ranks
+    sorted.forEach((p, i) => {
+      if (i === 0) { p.rank = 1; return; }
+      const prev = sorted[i-1];
+      if (p.points === prev.points && p.exact === prev.exact &&
+          p.diff === prev.diff && p.winner === prev.winner) {
+        p.rank = prev.rank;
+      } else { p.rank = i + 1; }
+    });
+
+    if (sorted.length === 0 || sorted.every(s => s.points === 0)) {
+      el.innerHTML = '<div style="padding:30px;text-align:center;color:var(--text2);">¡La 2a Fase aún no ha comenzado! Los puntos aparecerán cuando inicien los partidos de eliminación.</div>';
+      return;
+    }
+
+    el.innerHTML = sorted.map(p => {
+      const rankClass = p.rank === 1 ? 'gold' : p.rank === 2 ? 'silver' : p.rank === 3 ? 'bronze' : '';
+      const isMe = p.email === currentUser.email;
+      const initials = p.name.split(' ').map(n=>n[0]).join('').slice(0,2).toUpperCase();
+      return `<div class="lb-row-wrap">
+        <div class="lb-row ${isMe?'me':''}">
+          <div class="lb-rank ${rankClass}">${p.rank <= 3 ? ['🥇','🥈','🥉'][p.rank-1] : p.rank}</div>
+          <div class="lb-user">
+            <div class="lb-avatar">${initials}</div>
+            <div>
+              <div class="lb-name">${p.name}${isMe?'<span class="you-badge">TÚ</span>':''}</div>
+              <div class="lb-email">${p.email}</div>
+            </div>
+          </div>
+          <div class="lb-pts">${p.points}</div>
+          <div class="lb-stat">🎯 ${p.exact}</div>
+          <div class="lb-stat">✅ ${p.diff}</div>
+          <div class="lb-stat">✔️ ${p.winner}</div>
+        </div>
+      </div>`;
+    }).join('');
+
+  } catch(e) {
+    el.innerHTML = '<div style="padding:20px;color:var(--red);">Error al calcular tabla: ' + e.message + '</div>';
+    console.error(e);
+  }
+}
+
 // ===================== MOBILE MENU =====================
 function toggleMobileMenu() {
   const menu = document.getElementById('mobileMenu');
@@ -1531,13 +1794,13 @@ function showPage(page, btn) {
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('page-' + page).classList.add('active');
   if (btn) btn.classList.add('active');
-  // Scroll to top on mobile
   window.scrollTo(0, 0);
 
   if (page === 'home') renderHome();
-  else if (page === 'picks') renderPicks();
-  else if (page === 'leaderboard') renderLeaderboard();
-  else if (page === 'schedule') renderSchedule();
+  else if (page === 'picks') { currentPhase = 'fase2'; renderPicks(); }
+  else if (page === 'leaderboard') { currentLbPhase = 'fase2'; renderLeaderboardFase2(); }
+  else if (page === 'live') { currentLivePhase = 'fase2'; }
+  else if (page === 'schedule') { currentSchedulePhase = 'fase2'; renderSchedule(); }
   else if (page === 'groups') renderGroups();
   else if (page === 'venues') renderVenues();
 }
