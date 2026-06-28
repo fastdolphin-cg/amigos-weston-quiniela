@@ -1547,14 +1547,29 @@ async function fetchLiveScores() {
 
     // Always update scores and recalculate leaderboard
     if (finishedFixtures.length > 0) {
-      showToast('Actualizando puntos...', 'success');
+      showToast('Actualizando puntos y partidos nuevos...', 'success');
       await updateMatchResultsInSheet(finishedFixtures);
-      await loadLeaderboard();
-      if (document.getElementById('page-leaderboard').classList.contains('active')) renderLeaderboard();
-      showToast('¡Puntos actualizados! 🎯', 'success');
+    } else {
+      // Aunque no haya partidos terminados, sincronizar partidos nuevos
+      await gasRequest('updateScores', { fixtures: [] });
+    }
+
+    // Recargar allMatches para mostrar partidos nuevos
+    await loadMatches();
+    await loadLeaderboard();
+
+    // Refrescar la vista actual
+    const activePage = document.querySelector('.page.active');
+    if (activePage) {
+      const pageId = activePage.id.replace('page-', '');
+      if (pageId === 'home') renderHome();
+      else if (pageId === 'schedule') renderSchedule();
+      else if (pageId === 'picks') renderPicks();
+      else if (pageId === 'leaderboard') { currentLbPhase === 'fase2' ? renderLeaderboardFase2() : renderLeaderboard(); }
     }
 
     document.getElementById('lastUpdated').textContent = 'Actualizado: ' + new Date().toLocaleTimeString();
+    showToast('¡Marcadores y partidos actualizados! 🎯', 'success');
   } catch(e) {
     showToast('Error al obtener marcadores: ' + e.message, 'error');
     console.error(e);
