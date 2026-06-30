@@ -1266,7 +1266,7 @@ function renderLeaderboard() {
     const isMe = p.email === currentUser.email;
     const initials = p.name.split(' ').map(n=>n[0]).join('').slice(0,2).toUpperCase();
     return `<div class="lb-row-wrap" id="wrap-${p.email.replace(/[@.]/g,'_')}">
-      <div class="lb-row ${isMe?'me':''}" style="cursor:pointer;" onclick="toggleDrill('${p.email.replace(/[@.]/g,'_')}', '${p.email}')">
+      <div class="lb-row ${isMe?'me':''}" style="cursor:pointer;" onclick="toggleDrill('${p.email.replace(/[@.]/g,'_')}', '${p.email}', 'grupos')">
         <div class="lb-rank ${rankClass}">${p.rank <= 3 ? ['🥇','🥈','🥉'][p.rank-1] : p.rank}</div>
         <div class="lb-user">
           <div class="lb-avatar">${initials}</div>
@@ -1287,7 +1287,8 @@ function renderLeaderboard() {
   }).join('');
 }
 
-async function toggleDrill(id, email) {
+async function toggleDrill(id, email, phase) {
+  phase = phase || 'grupos'; // default to grupos for backward compat
   const drill = document.getElementById('drill-' + id);
   const isOpen = drill.classList.contains('open');
 
@@ -1299,13 +1300,25 @@ async function toggleDrill(id, email) {
   drill.classList.add('open');
 
   try {
-    const userPicksData = await gasRequest('getPicks', { email });
+    let userPicksData;
+    if (allPicksCache[email]) {
+      userPicksData = allPicksCache[email];
+    } else {
+      userPicksData = await gasRequest('getPicks', { email });
+      allPicksCache[email] = userPicksData;
+    }
 
     const pts3 = [], pts2 = [], pts1 = [], pts0 = [], pending = [];
 
     userPicksData.forEach(pick => {
       const match = allMatches.find(m => m.id === pick.MatchID);
       if (!match) return;
+
+      // Filter by phase
+      const matchIsGrupos = isGrupos(match);
+      if (phase === 'grupos' && !matchIsGrupos) return;
+      if (phase === 'fase2' && matchIsGrupos) return;
+
       const pts = pick.Points !== '' && pick.Points !== null && pick.Points !== undefined ? parseInt(pick.Points) : null;
       const hasResult = match.homeScore !== null && match.homeScore !== undefined && match.homeScore !== '';
       const isLocked = isMatchLocked(match);
@@ -1943,13 +1956,14 @@ async function renderLeaderboardFase2() {
       const rankClass = p.rank === 1 ? 'gold' : p.rank === 2 ? 'silver' : p.rank === 3 ? 'bronze' : '';
       const isMe = p.email === currentUser.email;
       const initials = p.name.split(' ').map(n=>n[0]).join('').slice(0,2).toUpperCase();
-      return `<div class="lb-row-wrap">
-        <div class="lb-row ${isMe?'me':''}">
+      const safeId = p.email.replace(/[@.]/g,'_');
+      return `<div class="lb-row-wrap" id="wrap-f2-${safeId}">
+        <div class="lb-row ${isMe?'me':''}" style="cursor:pointer;" onclick="toggleDrill('f2-${safeId}', '${p.email}', 'fase2')">
           <div class="lb-rank ${rankClass}">${p.rank <= 3 ? ['🥇','🥈','🥉'][p.rank-1] : p.rank}</div>
           <div class="lb-user">
             <div class="lb-avatar">${initials}</div>
             <div>
-              <div class="lb-name">${p.name}${isMe?'<span class="you-badge">TÚ</span>':''}</div>
+              <div class="lb-name">${p.name}${isMe?'<span class="you-badge">TÚ</span>':''} <span style="font-size:0.7rem;color:var(--text2);">▼</span></div>
               <div class="lb-email">${p.email}</div>
             </div>
           </div>
@@ -1957,6 +1971,9 @@ async function renderLeaderboardFase2() {
           <div class="lb-stat">🎯 ${p.exact}</div>
           <div class="lb-stat">✅ ${p.diff}</div>
           <div class="lb-stat">✔️ ${p.winner}</div>
+        </div>
+        <div class="lb-drill" id="drill-f2-${safeId}">
+          <div style="color:var(--text2);font-size:0.8rem;">Cargando pronósticos...</div>
         </div>
       </div>`;
     }).join('');
